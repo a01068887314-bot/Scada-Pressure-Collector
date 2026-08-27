@@ -1,0 +1,367 @@
+[
+  {
+    "device_key": "2188",
+    "region": "청주",
+    "location": "흥덕구 복대동 26-2번지"
+  },
+  {
+    "device_key": "2168",
+    "region": "청주",
+    "location": "흥덕구 비하동 121-5번지 명성빌라"
+  },
+  {
+    "device_key": "2176",
+    "region": "청주",
+    "location": "흥덕구 가경동 1095번지"
+  },
+  {
+    "device_key": "2163",
+    "region": "청주",
+    "location": "흥덕구 강서동 470번지"
+  },
+  {
+    "device_key": "2239",
+    "region": "청주",
+    "location": "청원구 오창읍 구룡리 419-8번지"
+  },
+  {
+    "device_key": "2198",
+    "region": "청주",
+    "location": "흥덕구 복대동 58-66번지"
+  },
+  {
+    "device_key": "2197",
+    "region": "청주",
+    "location": "흥덕구 복대동 833-1번지 청송아파트"
+  },
+  {
+    "device_key": "2202",
+    "region": "청주",
+    "location": "흥덕구 복대동 1656번지"
+  },
+  {
+    "device_key": "2187",
+    "region": "청주",
+    "location": "흥덕구 송절동 850번지 우미린@"
+  },
+  {
+    "device_key": "2183",
+    "region": "청주",
+    "location": "흥덕구 봉명동 2307번지 더라움 3차"
+  },
+  {
+    "device_key": "2199",
+    "region": "청주",
+    "location": "상당구 용암동 2083번지 삼일@"
+  },
+  {
+    "device_key": "2174",
+    "region": "청주",
+    "location": "흥덕구 봉명동 187-21번지 민우빌라"
+  },
+  {
+    "device_key": "2180",
+    "region": "청주",
+    "location": "흥덕구 신봉동 338번지 창신아파트"
+  },
+  {
+    "device_key": "2212",
+    "region": "청주",
+    "location": "흥덕구 봉명동 884-2번지"
+  },
+  {
+    "device_key": "2207",
+    "region": "청주",
+    "location": "흥덕구 운천동 727번지 극동빌라"
+  },
+  {
+    "device_key": "2206",
+    "region": "청주",
+    "location": "흥덕구 오송읍 만수리 816번지"
+  },
+  {
+    "device_key": "2203",
+    "region": "청주",
+    "location": "서원구 개신동 255-6번지"
+  },
+  {
+    "device_key": "2205",
+    "region": "청주",
+    "location": "서원구 죽림동 393번지"
+  },
+  {
+    "device_key": "2193",
+    "region": "청주",
+    "location": "서원구 사창동 323-1번지 예스빌"
+  },
+  {
+    "device_key": "2235",
+    "region": "청주",
+    "location": "흥덕구 복대동 2757번지"
+  },
+  {
+    "device_key": "2236",
+    "region": "청주",
+    "location": "상당구 남일면 효촌리 19-11 (재원빌라)"
+  },
+  {
+    "device_key": "2175",
+    "region": "청주",
+    "location": "서원구 모충동 132-34번지"
+  },
+  {
+    "device_key": "2190",
+    "region": "청주",
+    "location": "서원구 모충동 84-20번지"
+  },
+  {
+    "device_key": "2237",
+    "region": "청주",
+    "location": "서원구 산남동 735번지"
+  },
+  {
+    "device_key": "2208",
+    "region": "청주",
+    "location": "서원구 분평동 1088번지"
+  },
+  {
+    "device_key": "2181",
+    "region": "청주",
+    "location": "서원구 분평동 1318번지"
+  },
+  {
+    "device_key": "2161",
+    "region": "청주",
+    "location": "청원구 율량동 789번지"
+  },
+  {
+    "device_key": "2164",
+    "region": "청주",
+    "location": "청원구 율량동 1087번지"
+  },
+  {
+    "device_key": "2209",
+    "region": "청주",
+    "location": "청원구 율량동 2429번지"
+  },
+  {
+    "device_key": "2171",
+    "region": "청주",
+    "location": "청원구 사천동 231-4번지(보성1차 1동)"
+  },
+  {
+    "device_key": "2182",
+    "region": "청주",
+    "location": "청원구 내덕동 299-12번지"
+  },
+  {
+    "device_key": "2170",
+    "region": "청주",
+    "location": "청원구 내덕동 55-4번지"
+  },
+  {
+    "device_key": "2194",
+    "region": "청주",
+    "location": "상당구 용암동 2953번지"
+  },
+  {
+    "device_key": "2238",
+    "region": "청주",
+    "location": "청원구 오창읍 구룡리 397-1번지"
+  },
+  {
+    "device_key": "2160",
+    "region": "청주",
+    "location": "증평읍 초중리 109-69번지"
+  },
+  {
+    "device_key": "2167",
+    "region": "청주",
+    "location": "청원구 오창읍 복현로 98-8번지"
+  },
+  {
+    "device_key": "2165",
+    "region": "청주",
+    "location": "상당구 수동 328-15번지"
+  },
+  {
+    "device_key": "2178",
+    "region": "청주",
+    "location": "상당구 석교동 128번지 석교초등학교"
+  },
+  {
+    "device_key": "2169",
+    "region": "청주",
+    "location": "상당구 금천동 107번지 금천연립 다동"
+  },
+  {
+    "device_key": "2162",
+    "region": "청주",
+    "location": "상당구 용정동 1184번지"
+  },
+  {
+    "device_key": "2172",
+    "region": "청주",
+    "location": "상당구 용암동 1270번지 은평교회"
+  },
+  {
+    "device_key": "2179",
+    "region": "청주",
+    "location": "상당구 용암동 1304번지"
+  },
+  {
+    "device_key": "2201",
+    "region": "청주",
+    "location": "증평읍 장동리 350번지 보창아파트"
+  },
+  {
+    "device_key": "2173",
+    "region": "청주",
+    "location": "흥덕구 오송 봉산리 1388번지"
+  },
+  {
+    "device_key": "2214",
+    "region": "청주",
+    "location": "청원구 오창읍 구룡리 430-12번지"
+  },
+  {
+    "device_key": "2215",
+    "region": "청주",
+    "location": "증평읍 신동리 306번지 부흥연립 1동"
+  },
+  {
+    "device_key": "2216",
+    "region": "청주",
+    "location": "청원구 주중동 886번지"
+  },
+  {
+    "device_key": "2217",
+    "region": "청주",
+    "location": "서원구 수곡동 953번지"
+  },
+  {
+    "device_key": "2218",
+    "region": "청주",
+    "location": "흥덕구 복대동 905-10번지 명동빌라"
+  },
+  {
+    "device_key": "2219",
+    "region": "청주",
+    "location": "흥덕구 가경동 174-11번지"
+  },
+  {
+    "device_key": "2220",
+    "region": "청주",
+    "location": "흥덕구 복대동 1169번지"
+  },
+  {
+    "device_key": "2231",
+    "region": "청주",
+    "location": "상당구 용암동 3279번지"
+  },
+  {
+    "device_key": "2232",
+    "region": "청주",
+    "location": "청원구 오창읍 양청리 713-5번지"
+  },
+  {
+    "device_key": "2240",
+    "region": "청주",
+    "location": "청원구 내수읍 내수리 241번지"
+  },
+  {
+    "device_key": "2177",
+    "region": "청주",
+    "location": "청원구 내덕동 362-5번지"
+  },
+  {
+    "device_key": "2166",
+    "region": "청주",
+    "location": "청원구 내덕동 412-1번지"
+  },
+  {
+    "device_key": "2141",
+    "region": "청주",
+    "location": "서원구 수곡동 71-3번지"
+  },
+  {
+    "device_key": "2204",
+    "region": "청주",
+    "location": "청원구 오창읍 양청리 674-6 (엘리제원룸)"
+  },
+  {
+    "device_key": "2184",
+    "region": "서부",
+    "location": "진천군 진천읍 읍내리 44-1번지(옥당아파트)"
+  },
+  {
+    "device_key": "2185",
+    "region": "서부",
+    "location": "진천군 광혜원면 광혜원리 587-1번지(화랑빌라)"
+  },
+  {
+    "device_key": "2189",
+    "region": "서부",
+    "location": "음성군 감곡면 오향리 934-9번지 (궁전파크빌)"
+  },
+  {
+    "device_key": "2191",
+    "region": "서부",
+    "location": "진천군 덕산읍 두촌리 2662번지 (빌라)"
+  },
+  {
+    "device_key": "2186",
+    "region": "북부",
+    "location": "제천시 천남동 9번지 (신원아침도시 빌라)"
+  },
+  {
+    "device_key": "2195",
+    "region": "북부",
+    "location": "제천시 화산동 289번지 (제천 동화주택)"
+  },
+  {
+    "device_key": "2210",
+    "region": "북부",
+    "location": "제천시 신백동 212-7번지 (신백초등학교 정문)"
+  },
+  {
+    "device_key": "2233",
+    "region": "북부",
+    "location": "제천시 장락동 530-7번지"
+  },
+  {
+    "device_key": "2241",
+    "region": "북부",
+    "location": "제천시 청전동 137-10번지"
+  },
+  {
+    "device_key": "2196",
+    "region": "남부",
+    "location": "영동군 영동읍 매천리 394-7번지"
+  },
+  {
+    "device_key": "2211",
+    "region": "남부",
+    "location": "영동군 영동읍 부용리 425번지"
+  },
+  {
+    "device_key": "2200",
+    "region": "남부",
+    "location": "옥천군 옥천읍 양수리 141번지"
+  },
+  {
+    "device_key": "2213",
+    "region": "남부",
+    "location": "옥천군 옥천읍 마암리 49-7번지"
+  },
+  {
+    "device_key": "2242",
+    "region": "남부",
+    "location": "옥천군 옥천읍 죽향리 196-2번지"
+  },
+  {
+    "device_key": "2192",
+    "region": "남부",
+    "location": "영동군 영동읍 설계리 886번지"
+  }
+]
