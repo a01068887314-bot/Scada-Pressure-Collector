@@ -27,6 +27,7 @@ from parse_csv import parse_scada_csv, make_firestore_doc_id
 
 
 COLLECTION_NAME = "pressure_readings"
+LATEST_COLLECTION_NAME = "latest_readings"  # 기기별 "가장 최근 값"만 저장 (대시보드 조회 속도용)
 
 _db = None
 
@@ -61,6 +62,7 @@ def upload_records(records: list[dict]) -> int:
     """
     파싱된 레코드 리스트를 Firestore에 배치(batch)로 업로드.
     Firestore 배치는 최대 500건까지 지원하므로 500건 단위로 쪼개서 커밋.
+    동시에, 이 배치 안에서 시각이 가장 최근인 레코드를 latest_readings에도 갱신.
 
     Returns:
         업로드된 문서 수
@@ -89,14 +91,29 @@ def upload_records(records: list[dict]) -> int:
         total_uploaded += len(chunk)
         print(f"  -> {total_uploaded}/{len(records)}건 업로드 완료")
 
+    # 이 배치 안에서 시각이 가장 최근인 레코드 하나를 latest_readings에 저장/갱신
+    # (여러 기기가 섞여 있을 수 있으니 기기별로 최신 것만 추려서 갱신)
+    latest_by_device: dict[str, dict] = {}
+    for record in records:
+        device_key = record["device_key"]
+        if device_key not in latest_by_device or record["timestamp"] > latest_by_device[device_key]["timestamp"]:
+            latest_by_device[device_key] = record
+
+    latest_collection_ref = db.collection(LATEST_COLLECTION_NAME)
+    for device_key, record in latest_by_device.items():
+        data = dict(record)
+        data["uploaded_at"] = firestore.SERVER_TIMESTAMP
+        latest_collection_ref.document(device_key).set(data, merge=False)
+
     return total_uploaded
 
 
-def parse_and_upload_csv(file_path: str, device_key: str) -> int:
+def parse_and_upload_csv(file_path: str, device_key: str, extra_fields: dict | None = None) -> int:
     """
     CSV 파일 하나를 파싱해서 바로 Firestore에 업로드하는 헬퍼.
+    extra_fields: 위치정보 등 모든 레코드에 공통으로 붙일 값 (예: {"region": "청주", "location": "..."})
     """
-    records = parse_scada_csv(file_path, device_key)
+    records = parse_scada_csv(file_path, device_key, extra_fields=extra_fields)
     print(f"[{device_key}] {len(records)}건 파싱됨, 업로드 시작...")
     return upload_records(records)
 
