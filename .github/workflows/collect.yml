@@ -1,4 +1,3 @@
-.github/workflows/collect.yml
 name: SCADA 압력데이터 자동 수집
 
 on:
