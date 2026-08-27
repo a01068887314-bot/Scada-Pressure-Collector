@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SCADA 압력 모니터링 대시보드</title>
+
+<!-- Firebase (Firestore 읽기 전용) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+  :root {
+    --bg: #0b1220;
+    --surface: #111a2e;
+    --surface-2: #16223b;
+    --border: #1f2c48;
+    --text: #e7ecf5;
+    --text-muted: #7c8aa5;
+    --live: #2dd4bf;
+    --live-dim: #123934;
+    --stale: #f5a623;
+    --stale-dim: #3a2c10;
+    --offline: #f87171;
+    --offline-dim: #3a1616;
+    --chart-line: #60a5fa;
+    --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  /* ---------- 헤더 ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(11, 18, 32, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .title-block h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 2px 0;
+    letter-spacing: 0.2px;
+  }
+
+  .title-block .sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--live);
+    background: var(--live-dim);
+    border: 1px solid rgba(45, 212, 191, 0.35);
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.7);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(45, 212, 191, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
+  }
+
+  .summary-row {
+    display: flex;
+    gap: 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .summary-item { display: flex; align-items: baseline; gap: 6px; }
+  .summary-item .n { font-size: 15px; font-weight: 700; }
+  .summary-item.live .n { color: var(--live); }
+  .summary-item.stale .n { color: var(--stale); }
+  .summary-item.offline .n { color: var(--offline); }
+
+  /* ---------- 필터 탭 ---------- */
+  .filter-bar {
+    padding: 14px 28px 0 28px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-tab {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .filter-tab:hover { color: var(--text); border-color: #2c3c60; }
+
+  .filter-tab.active {
+    color: var(--bg);
+    background: var(--live);
+    border-color: var(--live);
+    font-weight: 600;
+  }
+
+  /* ---------- 메인 레이아웃 ---------- */
+  main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px 28px 40px 28px;
+  }
+
+  @media (min-width: 980px) {
+    main { grid-template-columns: 1.5fr 1fr; align-items: start; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ---------- 테이블 ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s ease;
+  }
+
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr.selected { background: #172746; }
+
+  tbody td { padding: 10px 16px; vertical-align: middle; }
+
+  .loc-cell .region { font-size: 11px; color: var(--text-muted); }
+  .loc-cell .addr { font-size: 13px; }
+
+  .pressure-val {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status-dot.live { background: var(--live); box-shadow: 0 0 6px rgba(45,212,191,0.7); }
+  .status-dot.stale { background: var(--stale); }
+  .status-dot.offline { background: var(--offline); }
+
+  .status-label { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+  .ts-cell { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+
+  /* ---------- 상세 패널 ---------- */
+  #detail-panel .panel-head { position: sticky; top: 0; background: var(--surface); }
+
+  .detail-empty {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .detail-body { padding: 18px; }
+
+  .detail-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .detail-sub { font-size: 12px; color: var(--text-muted); font-family: var(--mono); margin-bottom: 18px; }
+
+  .detail-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .metric-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .metric-box .label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .metric-box .value { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+
+  canvas#chart { width: 100%; height: 220px; display: block; }
+
+  .chart-empty {
+    padding: 40px 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  footer {
+    padding: 20px 28px 40px 28px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>SCADA 압력 모니터링</h1>
+    <div class="sub" id="last-sync">동기화 대기 중...</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="summary-row">
+      <div class="summary-item live"><span class="n" id="count-live">–</span><span>정상</span></div>
+      <div class="summary-item stale"><span class="n" id="count-stale">–</span><span>지연</span></div>
+      <div class="summary-item offline"><span class="n" id="count-offline">–</span><span>끊김</span></div>
+    </div>
+    <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+  </div>
+</header>
+
+<div class="filter-bar" id="filter-bar">
+  <button class="filter-tab active" data-region="__all__">전체</button>
+  <!-- 지역 탭은 JS에서 자동 생성 -->
+</div>
+
+<main>
+  <section class="panel">
+    <div class="panel-head">
+      <span id="table-title">전체 기기 (73개소)</span>
+      <span id="table-updated" style="font-family: var(--mono); font-weight: 400;"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>상태</th>
+          <th>위치</th>
+          <th>기기번호</th>
+          <th>압력</th>
+          <th>최근 수신</th>
+        </tr>
+      </thead>
+      <tbody id="device-table-body">
+        <tr><td colspan="5" style="padding: 30px 16px; color: var(--text-muted); text-align:center;">데이터 불러오는 중...</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" id="detail-panel">
+    <div class="panel-head"><span>기기 상세</span></div>
+    <div id="detail-content">
+      <div class="detail-empty">
+        왼쪽 목록에서 기기를 선택하면<br/>최근 압력 추이가 여기에 표시됩니다.
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  pressure_readings / latest_readings — Firebase Firestore &middot; 15분 주기 자동 수집 (GitHub Actions)
+</footer>
+
+<script>
+  // ============================================================
+  // 1) Firebase 초기화
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyC1r7GN88bAzCBQyq4QMJ4oAaO57V5FGT4",
+    authDomain: "gwanmal-bf731.firebaseapp.com",
+    projectId: "gwanmal-bf731",
+    storageBucket: "gwanmal-bf731.firebasestorage.app",
+    messagingSenderId: "640671416972",
+    appId: "1:640671416972:web:c0cfb38fd178bc36e6f1a9",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  // ============================================================
+  // 2) 상태 판정 기준
+  // ============================================================
+  const LIVE_THRESHOLD_MIN = 30;    // 30분 이내 수신 -> 정상(live)
+  const STALE_THRESHOLD_MIN = 120;  // 30분~2시간 -> 지연(stale) / 2시간 이상 -> 끊김(offline)
+
+  function getStatus(timestampStr) {
+    if (!timestampStr) return "offline";
+    const diffMin = (Date.now() - new Date(timestampStr).getTime()) / 60000;
+    if (diffMin <= LIVE_THRESHOLD_MIN) return "live";
+    if (diffMin <= STALE_THRESHOLD_MIN) return "stale";
+    return "offline";
+  }
+
+  function formatRelativeTime(timestampStr) {
+    if (!timestampStr) return "수신 이력 없음";
+    const diffMin = Math.floor((Date.now() - new Date(timestampStr).getTime()) / 60000);
+    if (diffMin < 1) return "방금 전";
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    return `${Math.floor(diffHour / 24)}일 전`;
+  }
+
+  const STATUS_LABEL = { live: "정상", stale: "지연", offline: "끊김" };
+
+  // ============================================================
+  // 3) 상태 저장
+  // ============================================================
+  let allDevices = [];   // latest_readings 전체
+  let activeRegion = "__all__";
+  let selectedDeviceKey = null;
+
+  // ============================================================
+  // 4) latest_readings 실시간 구독 (73개 문서 -> 가벼움)
+  // ============================================================
+  db.collection("latest_readings").onSnapshot(
+    (snapshot) => {
+      allDevices = snapshot.docs.map((doc) => ({ device_key: doc.id, ...doc.data() }));
+      document.getElementById("last-sync").textContent =
+        "마지막 동기화: " + new Date().toLocaleTimeString("ko-KR");
+      renderRegionTabs();
+      renderTable();
+    },
+    (err) => {
+      console.error("latest_readings 구독 오류:", err);
+      document.getElementById("device-table-body").innerHTML =
+        `<tr><td colspan="5" style="padding:30px 16px; color:var(--offline); text-align:center;">
+          데이터를 불러오지 못했습니다. Firestore 보안 규칙(읽기 권한)을 확인해주세요.<br/>
+          <span style="font-family:var(--mono); font-size:11px;">${err.message}</span>
+        </td></tr>`;
+    }
+  );
+
+  // ============================================================
+  // 5) 지역 필터 탭 렌더링
+  // ============================================================
+  function renderRegionTabs() {
+    const bar = document.getElementById("filter-bar");
+    const regions = [...new Set(allDevices.map((d) => d.region).filter(Boolean))].sort();
+
+    // 이미 탭이 만들어져 있으면 다시 안 만듦 (깜빡임 방지)
+    if (bar.dataset.built === "1") return;
+    bar.dataset.built = "1";
+
+    regions.forEach((region) => {
+      const btn = document.createElement("button");
+      btn.className = "filter-tab";
+      btn.dataset.region = region;
+      btn.textContent = region;
+      btn.addEventListener("click", () => setActiveRegion(region));
+      bar.appendChild(btn);
+    });
+
+    document.querySelector('.filter-tab[data-region="__all__"]').addEventListener("click", () => setActiveRegion("__all__"));
+  }
+
+  function setActiveRegion(region) {
+    activeRegion = region;
+    document.querySelectorAll(".filter-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.region === region);
+    });
+    renderTable();
+  }
+
+  // ============================================================
+  // 6) 기기 테이블 렌더링
+  // ============================================================
+  function renderTable() {
+    const body = document.getElementById("device-table-body");
+    let list = allDevices;
+    if (activeRegion !== "__all__") {
+      list = list.filter((d) => d.region === activeRegion);
+    }
+    // 위치명(location) 기준 정렬 -> 같은 동네끼리 모여 보이게
+    list = [...list].sort((a, b) => (a.location || "").localeCompare(b.location || ""));
+
+    document.getElementById("table-title").textContent =
+      (activeRegion === "__all__" ? "전체 기기" : activeRegion) + ` (${list.length}개소)`;
+
+    // 상단 요약 카운트
+    const counts = { live: 0, stale: 0, offline: 0 };
+    allDevices.forEach((d) => counts[getStatus(d.timestamp)]++);
+    document.getElementById("count-live").textContent = counts.live;
+    document.getElementById("count-stale").textContent = counts.stale;
+    document.getElementById("count-offline").textContent = counts.offline;
+
+    if (list.length === 0) {
+      body.innerHTML = `<tr><td colspan="5" style="padding:30px 16px; color:var(--text-muted); text-align:center;">해당 지역에 기기가 없습니다.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = list.map((d) => {
+      const status = getStatus(d.timestamp);
+      const pressureText = (d.pressure === null || d.pressure === undefined) ? "–" : d.pressure.toFixed(2);
+      const isSelected = d.device_key === selectedDeviceKey;
+      return `
+        <tr class="${isSelected ? "selected" : ""}" data-device-key="${d.device_key}">
+          <td><span class="status-dot ${status}"></span><span class="status-label">${STATUS_LABEL[status]}</span></td>
+          <td class="loc-cell">
+            <div class="region">${d.region || "-"}</div>
+            <div class="addr">${d.location || "-"}</div>
+          </td>
+          <td class="ts-cell">${d.device_key}</td>
+          <td class="pressure-val">${pressureText}</td>
+          <td class="ts-cell">${formatRelativeTime(d.timestamp)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    body.querySelectorAll("tr[data-device-key]").forEach((row) => {
+      row.addEventListener("click", () => selectDevice(row.dataset.deviceKey));
+    });
+  }
+
+  // ============================================================
+  // 7) 기기 선택 -> 상세 이력 조회 + 차트 렌더링
+  // ============================================================
+  function selectDevice(deviceKey) {
+    selectedDeviceKey = deviceKey;
+    renderTable(); // 선택 하이라이트 갱신
+
+    const device = allDevices.find((d) => d.device_key === deviceKey);
+    const content = document.getElementById("detail-content");
+
+    content.innerHTML = `
+      <div class="detail-body">
+        <div class="detail-title">${device?.location || deviceKey}</div>
+        <div class="detail-sub">기기번호 ${deviceKey} &middot; ${device?.region || "-"}</div>
+
+        <div class="detail-metrics">
+          <div class="metric-box">
+            <div class="label">현재 압력</div>
+            <div class="value">${device?.pressure != null ? device.pressure.toFixed(2) : "–"}</div>
+          </div>
+          <div class="metric-box">
+            <div class="label">배터리 전압</div>
+            <div class="value">${device?.battery_voltage != null ? device.battery_voltage.toFixed(2) : "–"}</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">최근 압력 추이</div>
+        <div id="chart-container">
+          <div class="chart-empty">불러오는 중...</div>
+        </div>
+      </div>
+    `;
+
+    loadHistoryAndDrawChart(deviceKey);
+  }
+
+  // 최근 이력 조회 (최대 100건) -> 캔버스에 직접 라인차트 그림 (외부 라이브러리 미사용)
+  function loadHistoryAndDrawChart(deviceKey) {
+    db.collection("pressure_readings")
+      .where("device_key", "==", deviceKey)
+      .orderBy("timestamp", "desc")
+      .limit(100)
+      .get()
+      .then((snapshot) => {
+        const points = snapshot.docs
+          .map((doc) => doc.data())
+          .filter((d) => d.pressure !== null && d.pressure !== undefined)
+          .reverse(); // 시간 오름차순으로
+
+        const container = document.getElementById("chart-container");
+        if (!container) return; // 그 사이 다른 기기를 눌렀을 수 있음
+
+        if (points.length === 0) {
+          container.innerHTML = `<div class="chart-empty">표시할 압력 이력이 없습니다.</div>`;
+          return;
+        }
+
+        container.innerHTML = `<canvas id="chart"></canvas>`;
+        drawLineChart(document.getElementById("chart"), points);
+      })
+      .catch((err) => {
+        console.error("이력 조회 오류:", err);
+        const container = document.getElementById("chart-container");
+        if (container) {
+          container.innerHTML = `
+            <div class="chart-empty" style="color:var(--offline);">
+              이력을 불러오지 못했습니다.<br/>
+              <span style="font-size:11px;">${err.message}</span><br/>
+              <span style="font-size:11px;">(Firestore가 복합 색인 생성을 요구할 수 있습니다 — 브라우저 개발자도구(F12) 콘솔의 에러 메시지에 나오는 링크를 클릭해서 색인을 만들어주세요)</span>
+            </div>`;
+        }
+      });
+  }
+
+  // 순수 canvas 기반 라인 차트 (외부 라이브러리 없이 직접 구현)
+  function drawLineChart(canvas, points) {
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth || canvas.parentElement.clientWidth;
+    const height = 220;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+
+    const padding = { top: 16, right: 16, bottom: 28, left: 44 };
+    const plotW = width - padding.left - padding.right;
+    const plotH = height - padding.top - padding.bottom;
+
+    const values = points.map((p) => p.pressure);
+    let minV = Math.min(...values);
+    let maxV = Math.max(...values);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+    const pad = (maxV - minV) * 0.1;
+    minV -= pad; maxV += pad;
+
+    const xFor = (i) => padding.left + (i / (points.length - 1 || 1)) * plotW;
+    const yFor = (v) => padding.top + plotH - ((v - minV) / (maxV - minV)) * plotH;
+
+    // 그리드 라인 + y축 라벨
+    ctx.strokeStyle = "#1f2c48";
+    ctx.fillStyle = "#7c8aa5";
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.lineWidth = 1;
+    const gridLines = 4;
+    for (let i = 0; i <= gridLines; i++) {
+      const v = minV + ((maxV - minV) * i) / gridLines;
+      const y = yFor(v);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+      ctx.fillText(v.toFixed(2), 4, y + 3);
+    }
+
+    // x축 라벨 (처음/끝 시각만 표시)
+    const fmtTime = (iso) => {
+      const d = new Date(iso);
+      return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    };
+    ctx.fillText(fmtTime(points[0].timestamp), padding.left, height - 8);
+    ctx.textAlign = "right";
+    ctx.fillText(fmtTime(points[points.length - 1].timestamp), width - padding.right, height - 8);
+    ctx.textAlign = "left";
+
+    // 라인
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const x = xFor(i);
+      const y = yFor(p.pressure);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = "#60a5fa";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 영역 채우기 (은은하게)
+    ctx.lineTo(xFor(points.length - 1), padding.top + plotH);
+    ctx.lineTo(xFor(0), padding.top + plotH);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(96, 165, 250, 0.08)";
+    ctx.fill();
+
+    // 마지막 포인트 강조
+    const lastX = xFor(points.length - 1);
+    const lastY = yFor(points[points.length - 1].pressure);
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#60a5fa";
+    ctx.fill();
+  }
+</script>
+
+</body>
+</html>
