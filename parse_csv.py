@@ -28,7 +28,7 @@ COLUMN_MAP = {
 }
 
 
-def parse_scada_csv(file_path: str, device_key: str) -> list[dict]:
+def parse_scada_csv(file_path: str, device_key: str, extra_fields: dict | None = None) -> list[dict]:
     """
     techpalm에서 다운로드한 CSV 파일 1개를 파싱해서
     Firestore에 저장 가능한 dict 리스트로 반환.
@@ -36,6 +36,7 @@ def parse_scada_csv(file_path: str, device_key: str) -> list[dict]:
     Args:
         file_path: 다운로드된 csv 파일 경로
         device_key: 이 데이터가 어느 기기(deviceKey)의 데이터인지 (예: "2161")
+        extra_fields: 모든 레코드에 공통으로 붙일 추가 정보 (예: {"region": "청주", "location": "..."})
 
     Returns:
         [
@@ -74,6 +75,8 @@ def parse_scada_csv(file_path: str, device_key: str) -> list[dict]:
             "device_key": str(device_key),
             "timestamp": dt.isoformat(),
         }
+        if extra_fields:
+            record.update(extra_fields)
 
         for field in [
             "pressure",
