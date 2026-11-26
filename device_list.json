@@ -25,9 +25,9 @@
     "location": "청원구 오창읍 구룡리 419-8번지"
   },
   {
-    "device_key": "2198",
+    "device_key": "2141",
     "region": "청주",
-    "location": "흥덕구 복대동 58-66번지"
+    "location": "서원구 수곡동 71-3번지"
   },
   {
     "device_key": "2197",
@@ -100,7 +100,7 @@
     "location": "흥덕구 복대동 2757번지"
   },
   {
-    "device_key": "2236",
+    "device_key": "2204",
     "region": "청주",
     "location": "상당구 남일면 효촌리 19-11 (재원빌라)"
   },
@@ -122,7 +122,7 @@
   {
     "device_key": "2208",
     "region": "청주",
-    "location": "서원구 분평동 1088번지"
+    "location": "서원구 분평동 1087번지"
   },
   {
     "device_key": "2181",
@@ -157,7 +157,7 @@
   {
     "device_key": "2170",
     "region": "청주",
-    "location": "청원구 내덕동 55-4번지"
+    "location": "청원구 내덕동 94-12번지"
   },
   {
     "device_key": "2194",
@@ -177,7 +177,7 @@
   {
     "device_key": "2167",
     "region": "청주",
-    "location": "청원구 오창읍 복현로 98-8번지"
+    "location": "청원구 오창읍 복현리 98-8번지"
   },
   {
     "device_key": "2165",
@@ -222,12 +222,12 @@
   {
     "device_key": "2214",
     "region": "청주",
-    "location": "청원구 오창읍 구룡리 430-12번지"
+    "location": "흥덕구 복대동 58-66번지"
   },
   {
-    "device_key": "2215",
+    "device_key": "2236",
     "region": "청주",
-    "location": "증평읍 신동리 306번지 부흥연립 1동"
+    "location": "청원구 오창읍 양청리 674-6 (엘리제원룸)"
   },
   {
     "device_key": "2216",
@@ -272,22 +272,12 @@
   {
     "device_key": "2177",
     "region": "청주",
-    "location": "청원구 내덕동 362-5번지"
+    "location": "청원구 우암동 340-9"
   },
   {
     "device_key": "2166",
     "region": "청주",
     "location": "청원구 내덕동 412-1번지"
-  },
-  {
-    "device_key": "2141",
-    "region": "청주",
-    "location": "서원구 수곡동 71-3번지"
-  },
-  {
-    "device_key": "2204",
-    "region": "청주",
-    "location": "청원구 오창읍 양청리 674-6 (엘리제원룸)"
   },
   {
     "device_key": "2184",
@@ -297,7 +287,7 @@
   {
     "device_key": "2185",
     "region": "서부",
-    "location": "진천군 광혜원면 광혜원리 587-1번지(화랑빌라)"
+    "location": "진천군 광혜원면 광혜원리 587-1번지(화랑아파트)"
   },
   {
     "device_key": "2189",
