@@ -8,11 +8,14 @@
   3. device_list.json에 있는 73개소를 순회하며 다운로드 API 호출
   4. 각 CSV를 파싱 -> Firestore 업로드
   5. 실패한 기기는 목록에 모아서 마지막에 로그로 출력 (한 기기 실패해도 전체가 죽지 않게)
+  6. (2026-11 추가) 기기별 최신값으로 Low/High 판정 → 상태가 바뀐 기기만 텔레그램 알람 (telegram_alert.py)
 
 환경변수 (GitHub Secrets 또는 로컬 .env에서 로드):
   SCADA_USERNAME               - techpalm 로그인 아이디
   SCADA_PASSWORD                - techpalm 로그인 비밀번호
   GOOGLE_APPLICATION_CREDENTIALS - Firebase 서비스 계정 키(json) 파일 경로
+  TELEGRAM_BOT_TOKEN            - (선택) 텔레그램 봇 토큰. 없으면 알람만 건너뜀
+  TELEGRAM_CHAT_ID              - (선택) 알람 받을 대화방 번호 (여러 곳이면 콤마로 구분)
 
 실행 예:
   python collect_all.py
@@ -24,14 +27,14 @@ import sys
 import json
 import argparse
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from playwright.sync_api import sync_playwright
 import requests
 
-from upload_firestore import parse_and_upload_csv
-
-KST = timezone(timedelta(hours=9))  # 한국 표준시 (GitHub Actions 서버는 UTC라서 명시적으로 변환 필요)
+from parse_csv import parse_scada_csv
+from upload_firestore import upload_records, get_firestore_client
+from telegram_alert import check_and_notify
 
 BASE_URL = "https://scada.techpalm.co.kr"
 LOGIN_URL = f"{BASE_URL}/scada/homes"  # test_login.py에서 검증된 실제 로그인 페이지 주소
@@ -112,7 +115,7 @@ def main():
     )
     args = parser.parse_args()
 
-    now = datetime.now(KST)
+    now = datetime.now()
     date_to = now.strftime("%Y%m%d%H%M%S")
     date_fr = (now - timedelta(minutes=args.minutes)).strftime("%Y%m%d%H%M%S")
 
@@ -125,18 +128,23 @@ def main():
 
     success_count = 0
     failed_devices = []
+    latest_by_device = {}  # 알람 판정용: 기기별 이번 수집의 가장 최근 값
 
     for device in devices:
         device_key = device["device_key"]
         location = device["location"]
         try:
             csv_path = download_device_csv(session_cookie, device_key, date_fr, date_to)
-            uploaded = parse_and_upload_csv(
-                csv_path,
-                device_key,
-                extra_fields={"region": device.get("region"), "location": location},
-            )
+            records = parse_scada_csv(csv_path, device_key)
+            uploaded = upload_records(records)
             os.remove(csv_path)
+            if records:
+                last = max(records, key=lambda r: r["timestamp"])
+                latest_by_device[str(device_key)] = {
+                    "pressure": last.get("pressure"),
+                    "timestamp": last.get("timestamp"),
+                    "location": location,
+                }
             print(f"[OK] {device_key} ({location}) - {uploaded}건 업로드")
             success_count += 1
         except Exception as e:
@@ -151,6 +159,12 @@ def main():
             print(f"  - {f['device_key']} ({f['location']}): {f['error']}")
         # 실패 건이 있으면 GitHub Actions에서 이 실행을 "실패"로 표시하고 싶을 때 아래 줄 활성화
         # sys.exit(1)
+
+    # ----- 압력 알람 (텔레그램) — 알람에서 오류가 나도 수집 결과에는 영향 없게 -----
+    try:
+        check_and_notify(latest_by_device, get_firestore_client())
+    except Exception as e:
+        print(f"[알람] 확인 중 오류 (수집은 정상 완료): {e}")
 
 
 if __name__ == "__main__":
