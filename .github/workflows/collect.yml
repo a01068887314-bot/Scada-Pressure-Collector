@@ -42,4 +42,3 @@ jobs:
       - name: 서비스 계정 키 파일 삭제
         if: always()
         run: rm -f /tmp/firebase-key.json
-        run: rm -f /tmp/firebase-key.json
