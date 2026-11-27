@@ -14,8 +14,8 @@ collect_all.py 가 15분마다 압력을 수집한 직후 check_and_notify() 를
 판정 기준 (앱과 공통 — 바뀌면 여기만 수정. 앱은 저장된 기준값을 그대로 표시)
   - 오류값 : 0.5 kPa 이하   → 판정 제외 (오류값을 거르기 위한 것으로, 화면·메시지에는 표시하지 않음)
   - Low    : 0.5 초과 1.7 미만  → 표시는 "Low 1.7 미만"
-  - High   : 2.3 초과
-  - 정상   : 1.7 이상 2.3 이하
+  - High   : 2.4 초과
+  - 정상   : 1.7 이상 2.4 이하
   ※ 같은 기기가 계속 Low/High로 반복 발송된다면 기준값을 조정한다.
 
 alarm_state/current 문서 구조
@@ -23,7 +23,7 @@ alarm_state/current 문서 구조
     "alarms": { "2208": {"status": "high", "pressure": 2.35, "timestamp": "2026-11-27T13:30:00",
                          "location": "서원구 ..."}, ... },     # 이번 판정의 Low/High 기기만
     "judged_at": "2026-11-27T13:33:12",                       # 판정 시각 (한국 시각)
-    "criteria": {"error_min": 0.5, "low": 1.7, "high": 2.3},
+    "criteria": {"error_min": 0.5, "low": 1.7, "high": 2.4},
     "updated_at": <server timestamp>
   }
 
@@ -46,7 +46,7 @@ import requests
 # ---------------- 판정 기준 (바뀌면 여기만 수정) ----------------
 ERROR_MIN = 0.5
 LOW = 1.7
-HIGH = 2.3
+HIGH = 2.4
 
 KST = timezone(timedelta(hours=9))  # GitHub 서버는 세계 표준시(UTC, 한국보다 9시간 느림)라 한국 시각으로 고정
 
