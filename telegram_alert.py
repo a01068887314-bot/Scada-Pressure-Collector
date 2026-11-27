@@ -3,40 +3,38 @@
 관말압력 Low / High 알람 — 판정은 여기 한 곳에서만 한다.
 
 collect_all.py 가 15분마다 압력을 수집한 직후 check_and_notify() 를 호출한다.
-  1) 기기별 "이번에 수집된 가장 최근 값 1개"로 판정
-  2) 판정 결과 = "현재 알람 목록"을 Firestore  alarm_state/current  에 저장 (매 실행)
-  3) 신규 알람 또는 해소가 있을 때만 텔레그램 발송 — 이때 "계속 중"인 알람도 함께 보냄
-앱 ④ 수신 압력의 "압력 알람" 칸은 이 alarm_state/current 를 그대로 읽어서 같은 내용으로 표시한다.
+  1) 기기별 "이번에 수집된 가장 최근 값 1개"로 판정 → Low/High 기기 목록
+  2) 판정 결과를 Firestore  alarm_state/current  에 저장 (앱 ④ "압력 알람" 칸이 그대로 표시)
+  3) 텔레그램 발송
+       - Low/High 기기가 있으면     → 매번 목록 발송 (같은 내용이 계속되어도 발송)
+       - 없는데 직전에 알람이 있었으면 → "✅ 이상 없음" 1회 발송
+       - 없고 직전에도 없었으면      → 보내지 않음
+  ※ 이번 수집에서 값을 하나도 못 받았으면(SCADA 접속 실패 등) 판정하지 않고 직전 결과 유지
 
-판정 기준 (앱과 공통 — 바뀌면 여기만 수정, 앱은 저장된 기준값을 그대로 표시)
-  - 오류값 : 0.5 kPa 미만        → 판정 제외 (기존 상태 유지)
+판정 기준 (앱과 공통 — 바뀌면 여기만 수정. 앱은 저장된 기준값을 그대로 표시)
+  - 오류값 : 0.5 kPa 미만   → 판정 제외
   - Low    : 0.5 이상 1.7 미만
-  - High   : 2.3 초과
-  - 정상   : 1.7 이상 2.3 이하
-
-알람 목록 규칙
-  - 신규   : 정상 → Low/High, 또는 Low ↔ High 로 바뀐 경우 (발생 시각 = 그 값의 수신 시각)
-  - 계속 중: 이전에도 같은 상태 → 최근값·수신 시각만 갱신, 발생 시각 유지
-  - 해소   : Low/High → 정상  → 목록에서 빠지고 "해소"로 1번 알림
-  - 이번에 값이 안 들어온 기기(수신 끊김)는 목록에 그대로 두고 "수신 끊김"으로 표시
+  - High   : 2.4 초과
+  - 정상   : 1.7 이상 2.4 이하
+  ※ 같은 기기가 계속 Low/High로 반복 발송된다면 기준값을 조정한다.
 
 alarm_state/current 문서 구조
   {
-    "alarms": { "2208": {"status": "high", "pressure": 2.35, "timestamp": "2026-11-27T13:00:00",
-                         "since": "2026-11-27T10:30:00", "location": "서원구 ..."} , ... },
-    "judged_at": "2026-11-27T13:03:12",           # 판정 시각 (한국 시각)
-    "criteria": {"error_min": 0.5, "low": 1.7, "high": 2.3},
+    "alarms": { "2208": {"status": "high", "pressure": 2.35, "timestamp": "2026-11-27T13:30:00",
+                         "location": "서원구 ..."}, ... },     # 이번 판정의 Low/High 기기만
+    "judged_at": "2026-11-27T13:33:12",                       # 판정 시각 (한국 시각)
+    "criteria": {"error_min": 0.5, "low": 1.7, "high": 2.4},
     "updated_at": <server timestamp>
   }
 
 환경변수 (GitHub Secrets 또는 로컬 .env)
   TELEGRAM_BOT_TOKEN  - 봇 토큰 (BotFather에서 발급)
   TELEGRAM_CHAT_ID    - 받을 대화방 번호. 여러 곳이면 콤마로 구분
-  둘 중 하나라도 없으면 텔레그램 발송만 건너뜀 (알람 목록 저장은 계속 → 앱은 정상 표시)
+  둘 중 하나라도 없으면 텔레그램 발송만 건너뜀 (판정 결과 저장은 계속 → 앱은 정상 표시)
 
 PC에서 시험하기 (scada(techpalm) 폴더에서 명령창)
   python telegram_alert.py           → 시험 메시지 1개 발송 (텔레그램 연결 확인)
-  python telegram_alert.py --status  → 지금 저장된 "현재 알람 목록"을 발송 (앱 ④ 알람 칸과 같은 내용)
+  python telegram_alert.py --status  → 지금 저장된 판정 결과를 발송 (앱 ④ 알람 칸과 같은 내용)
 """
 
 import os
@@ -48,9 +46,7 @@ import requests
 # ---------------- 판정 기준 (바뀌면 여기만 수정) ----------------
 ERROR_MIN = 0.5
 LOW = 1.7
-HIGH = 2.3
-
-STALE_MINUTES = 60  # 최근값 수신이 이보다 오래되면 "수신 끊김" 표시
+HIGH = 2.4
 
 KST = timezone(timedelta(hours=9))  # GitHub 서버는 세계 표준시(UTC, 한국보다 9시간 느림)라 한국 시각으로 고정
 
@@ -146,41 +142,13 @@ def send_telegram(text):
     return ok
 
 
-# ---------------- 시각 표기 (앱과 같은 형식) ----------------
-def _parse(ts_iso):
-    try:
-        return datetime.fromisoformat(str(ts_iso))
-    except Exception:
-        return None
-
-
+# ---------------- 메시지 (앱 ④ 알람 칸과 같은 표현) ----------------
 def _fmt(ts_iso):
     """'2026-11-27T09:15:03' → '11/27 09:15'"""
-    dt = _parse(ts_iso)
-    return dt.strftime("%m/%d %H:%M") if dt else str(ts_iso or "-")
-
-
-def _duration(since_iso, now):
-    """발생 시각부터 지금까지 → '2시간 30분째' / '15분째' / '1일 3시간째'"""
-    dt = _parse(since_iso)
-    if not dt:
-        return ""
-    mins = max(0, int((now - dt).total_seconds() // 60))
-    d, rem = divmod(mins, 1440)
-    h, m = divmod(rem, 60)
-    if d:
-        return f"{d}일 {h}시간째"
-    if h:
-        return f"{h}시간 {m}분째" if m else f"{h}시간째"
-    return f"{m}분째"
-
-
-def _is_stale(ts_iso, now):
-    dt = _parse(ts_iso)
-    return bool(dt) and (now - dt) > timedelta(minutes=STALE_MINUTES)
-
-
-ICON = {"low": "🔴 Low ", "high": "🟠 High"}
+    try:
+        return datetime.fromisoformat(str(ts_iso)).strftime("%m/%d %H:%M")
+    except Exception:
+        return str(ts_iso or "-")
 
 
 def _p(v):
@@ -190,69 +158,38 @@ def _p(v):
         return "-"
 
 
-def _alarm_lines(key, a, now, kind):
-    """kind: "new" | "ongoing" """
-    head = f"{ICON[a['status']]}  {key} {a.get('location') or ''}".rstrip()
-    detail = f"   {_p(a.get('pressure'))} kPa · {_fmt(a.get('timestamp'))} 수신"
-    if kind == "ongoing":
-        detail += f" · {_fmt(a.get('since'))}부터 ({_duration(a.get('since'), now)})"
-    lines = [head, detail]
-    if _is_stale(a.get("timestamp"), now):
-        lines.append(f"   ⚠ 수신 끊김 (마지막 {_fmt(a.get('timestamp'))})")
-    return lines
-
-
-def _resolved_lines(key, r):
-    head = f"🟢 {key} {r.get('location') or ''}".rstrip()
-    was = "Low" if r.get("was") == "low" else "High"
-    period = f"{_fmt(r.get('since'))}~{_fmt(r.get('timestamp'))}" if r.get("since") else "해소"
-    detail = f"   {_p(r.get('pressure'))} kPa · {_fmt(r.get('timestamp'))} 수신 · {was} {period}"
-    return [head, detail]
+ICON = {"low": "🔴 Low ", "high": "🟠 High"}
 
 
 def _sort_key(item):
     key, a = item
-    p = a.get("pressure")
     try:
-        p = float(p)
+        p = float(a.get("pressure"))
     except (TypeError, ValueError):
         p = 0.0
-    # Low 먼저(낮은 순), 그다음 High(높은 순)
-    return (0, p) if a.get("status") == "low" else (1, -p)
+    return (0, p) if a.get("status") == "low" else (1, -p)  # Low 먼저(낮은 순), 그다음 High(높은 순)
 
 
-def build_message(alarms, new_keys, resolved, judged_at):
-    """텔레그램 메시지 본문 (앱 ④ 알람 칸과 같은 내용·표현)"""
-    now = _parse(judged_at) or now_kst()
-    lines = [f"⚠ 관말압력 알람 ({_fmt(judged_at)} 판정)"]
+def _criteria_line():
+    return f"기준: Low {ERROR_MIN}~{LOW} 미만 / High {HIGH} 초과 (kPa)"
 
-    new_items = sorted([(k, alarms[k]) for k in new_keys if k in alarms], key=_sort_key)
-    ongoing = sorted([(k, a) for k, a in alarms.items() if k not in new_keys], key=_sort_key)
 
-    if new_items:
-        lines += ["", "[신규]"]
-        for k, a in new_items:
-            lines += _alarm_lines(k, a, now, "new")
-    if ongoing:
-        lines += ["", "[계속 중]"]
-        for k, a in ongoing:
-            lines += _alarm_lines(k, a, now, "ongoing")
-    if resolved:
-        lines += ["", "[해소]"]
-        for k, r in sorted(resolved.items()):
-            lines += _resolved_lines(k, r)
-
+def build_message(alarms, judged_at, title="⚠ 관말압력 알람"):
+    lines = [f"{title} ({_fmt(judged_at)} 판정)", ""]
+    for key, a in sorted(alarms.items(), key=_sort_key):
+        lines.append(f"{ICON[a['status']]}  {key} {a.get('location') or ''}".rstrip())
+        lines.append(f"   {_p(a.get('pressure'))} kPa · {_fmt(a.get('timestamp'))} 수신")
     lows = sum(1 for a in alarms.values() if a.get("status") == "low")
     highs = sum(1 for a in alarms.values() if a.get("status") == "high")
-    lines += [
-        "",
-        f"현재 알람: Low {lows} · High {highs}" if alarms else "✅ 현재 알람 없음",
-        f"기준: Low {ERROR_MIN}~{LOW} 미만 / High {HIGH} 초과 (kPa)",
-    ]
+    lines += ["", f"Low {lows} · High {highs}", _criteria_line()]
     return "\n".join(lines)
 
 
-# ---------------- 상태 보관 (Firestore) ----------------
+def build_clear_message(judged_at):
+    return "\n".join([f"✅ 관말압력 이상 없음 ({_fmt(judged_at)} 판정)", "", "Low/High 기기가 없습니다.", _criteria_line()])
+
+
+# ---------------- 판정 결과 보관 (Firestore) ----------------
 def _load_alarms(db):
     snap = db.collection(STATE_COLLECTION).document(STATE_DOC).get()
     if not snap.exists:
@@ -260,8 +197,7 @@ def _load_alarms(db):
     data = snap.to_dict() or {}
     if isinstance(data.get("alarms"), dict):
         return dict(data["alarms"])
-    # 예전 형식({"status": {"2208": "high"}}) → 새 형식으로 옮김 (발생 시각은 알 수 없어 비워 둠)
-    old = data.get("status") or {}
+    old = data.get("status") or {}  # 예전 형식({"2208": "high"}) 호환
     return {k: {"status": v} for k, v in old.items() if v in ("low", "high")}
 
 
@@ -282,66 +218,52 @@ def _save_alarms(db, alarms, judged_at):
 def check_and_notify(latest_by_device, db):
     """
     Args:
-        latest_by_device: { "2188": {"pressure": 1.65, "timestamp": "2026-11-27T09:15:03", "location": "흥덕구 ..."} }
+        latest_by_device: { "2188": {"pressure": 1.65, "timestamp": "2026-11-27T13:30:00", "location": "흥덕구 ..."} }
                           이번 수집에서 받은 기기별 가장 최근 값 (값이 없던 기기는 넣지 않음)
         db: firestore client (upload_firestore.get_firestore_client())
     Returns:
-        신규 + 해소 건수
+        이번 판정의 Low/High 기기 수 (판정을 건너뛰면 -1)
     """
-    judged_at = now_kst().strftime("%Y-%m-%dT%H:%M:%S")
-    prev = _load_alarms(db)
-    alarms = {k: dict(v) for k, v in prev.items()}
-    new_keys = []
-    resolved = {}
+    if not latest_by_device:
+        print("[알람] 이번 수집에서 받은 값이 없어 판정을 건너뜁니다 (직전 결과 유지).")
+        return -1
 
+    judged_at = now_kst().strftime("%Y-%m-%dT%H:%M:%S")
+    had_alarm_before = bool(_load_alarms(db))
+
+    alarms = {}
     for key, info in latest_by_device.items():
         cur = classify(info.get("pressure"))
-        if cur in (None, "error"):
-            continue  # 값 없음 / 오류값 → 기존 상태 그대로
-        before = prev.get(key)
-
         if cur in ("low", "high"):
-            entry = {
+            alarms[key] = {
                 "status": cur,
                 "pressure": info.get("pressure"),
                 "timestamp": info.get("timestamp"),
                 "location": info.get("location"),
             }
-            if before and before.get("status") == cur:
-                entry["since"] = before.get("since") or info.get("timestamp")  # 계속 중 → 발생 시각 유지
-            else:
-                entry["since"] = info.get("timestamp")  # 신규 (정상→Low/High, Low↔High)
-                new_keys.append(key)
-            alarms[key] = entry
-        elif before:  # cur == "ok" 인데 이전에 알람 → 해소
-            resolved[key] = {
-                "was": before.get("status"),
-                "since": before.get("since"),
-                "pressure": info.get("pressure"),
-                "timestamp": info.get("timestamp"),
-                "location": info.get("location") or before.get("location"),
-            }
-            alarms.pop(key, None)
 
-    # 판정 결과는 매번 저장 (앱 ④가 같은 내용을 표시하도록)
     _save_alarms(db, alarms, judged_at)
 
-    if not new_keys and not resolved:
-        print(f"[알람] 신규·해소 없음 (현재 알람 {len(alarms)}건)")
+    if alarms:
+        text = build_message(alarms, judged_at)
+    elif had_alarm_before:
+        text = build_clear_message(judged_at)
+    else:
+        print("[알람] Low/High 없음 (발송 없음)")
         return 0
 
     if not telegram_ready():
-        print("[알람] 텔레그램 설정이 없어 발송을 건너뜁니다. (알람 목록 저장은 완료)")
-        return len(new_keys) + len(resolved)
+        print("[알람] 텔레그램 설정이 없어 발송을 건너뜁니다. (판정 결과 저장은 완료)")
+        return len(alarms)
 
-    sent = send_telegram(build_message(alarms, new_keys, resolved, judged_at))
-    print(f"[알람] 신규 {len(new_keys)} · 해소 {len(resolved)} · 현재 {len(alarms)} → 발송 {sent}회")
-    return len(new_keys) + len(resolved)
+    sent = send_telegram(text)
+    print(f"[알람] Low/High {len(alarms)}건{' (이상 없음 안내)' if not alarms else ''} → 발송 {sent}회")
+    return len(alarms)
 
 
 # ---------------- PC 시험용 ----------------
 def _status_report():
-    """지금 저장된 '현재 알람 목록'을 발송 (앱 ④ 알람 칸과 같은 내용). 상태는 바꾸지 않음."""
+    """지금 저장된 판정 결과를 발송 (앱 ④ 알람 칸과 같은 내용). 저장 내용은 바꾸지 않음."""
     from upload_firestore import get_firestore_client
 
     db = get_firestore_client()
@@ -349,7 +271,7 @@ def _status_report():
     data = (snap.to_dict() or {}) if snap.exists else {}
     alarms = _load_alarms(db)
     judged_at = data.get("judged_at") or now_kst().strftime("%Y-%m-%dT%H:%M:%S")
-    text = build_message(alarms, [], {}, judged_at).replace("⚠ 관말압력 알람", "📋 관말압력 현재 알람 목록", 1)
+    text = build_message(alarms, judged_at, "📋 관말압력 현재 판정") if alarms else build_clear_message(judged_at)
     print(text)
     send_telegram(text)
 
