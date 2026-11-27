@@ -40,3 +40,6 @@ jobs:
       - name: 서비스 계정 키 파일 삭제
         if: always()
         run: rm -f /tmp/firebase-key.json
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        
