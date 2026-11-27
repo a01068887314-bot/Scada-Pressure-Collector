@@ -27,7 +27,7 @@ import sys
 import json
 import argparse
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from playwright.sync_api import sync_playwright
 import requests
@@ -35,6 +35,8 @@ import requests
 from parse_csv import parse_scada_csv
 from upload_firestore import upload_records, get_firestore_client
 from telegram_alert import check_and_notify
+
+KST = timezone(timedelta(hours=9))  # 한국 표준시 (GitHub Actions 서버는 UTC라서 명시적으로 변환 필요)
 
 BASE_URL = "https://scada.techpalm.co.kr"
 LOGIN_URL = f"{BASE_URL}/scada/homes"  # test_login.py에서 검증된 실제 로그인 페이지 주소
@@ -115,7 +117,7 @@ def main():
     )
     args = parser.parse_args()
 
-    now = datetime.now()
+    now = datetime.now(KST)
     date_to = now.strftime("%Y%m%d%H%M%S")
     date_fr = (now - timedelta(minutes=args.minutes)).strftime("%Y%m%d%H%M%S")
 
@@ -135,9 +137,13 @@ def main():
         location = device["location"]
         try:
             csv_path = download_device_csv(session_cookie, device_key, date_fr, date_to)
-            records = parse_scada_csv(csv_path, device_key)
-            uploaded = upload_records(records)
-            os.remove(csv_path)
+            # (기존 parse_and_upload_csv 와 같은 동작을 두 단계로 나눔 → 알람 판정에 레코드를 재사용)
+            records = parse_scada_csv(
+                csv_path,
+                device_key,
+                extra_fields={"region": device.get("region"), "location": location},
+            )
+            uploaded = upload_records(records)  # pressure_readings + latest_readings 저장
             if records:
                 last = max(records, key=lambda r: r["timestamp"])
                 latest_by_device[str(device_key)] = {
@@ -145,6 +151,7 @@ def main():
                     "timestamp": last.get("timestamp"),
                     "location": location,
                 }
+            os.remove(csv_path)
             print(f"[OK] {device_key} ({location}) - {uploaded}건 업로드")
             success_count += 1
         except Exception as e:
