@@ -35,10 +35,11 @@ jobs:
           SCADA_USERNAME: ${{ secrets.SCADA_USERNAME }}
           SCADA_PASSWORD: ${{ secrets.SCADA_PASSWORD }}
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-key.json
-                  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}  # 압력 알람 (2026-11 추가)
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python collect_all.py --minutes 20
 
       - name: 서비스 계정 키 파일 삭제
         if: always()
+        run: rm -f /tmp/firebase-key.json
         run: rm -f /tmp/firebase-key.json
